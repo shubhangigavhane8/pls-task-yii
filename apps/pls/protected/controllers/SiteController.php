@@ -82,7 +82,11 @@ class SiteController extends Controller {
 				$this->redirect(Yii::app()->user->returnUrl);
 			}
 		}
-		$this->render('login', ['model' => $model]);
+
+		$latestProduct = $this->getLatestFeed(Yii::app()->params['latestUpdatesFeedUrl']);
+		$latestBlog = $this->getLatestFeed(Yii::app()->params['latestBlogsFeedUrl']);
+
+		$this->render('login', ['model' => $model, 'latestProduct' => $latestProduct , 'latestBlog' => $latestBlog]);
 	}
 
 	/**
@@ -109,5 +113,32 @@ class SiteController extends Controller {
 				$this->render('//site/error', $error);
 			}
 		}
+	}
+
+
+	/**
+	 * Convert XML object array into multidimentional array and get latest feed.
+	 * 
+	 * @return object
+	 */
+	public function getLatestFeed($url) {
+		$feed = $feedArr = $feedNewArr = array();
+		if ($url) {
+			$feed = (array) Feed::loadRss($url);
+			$feedArr = json_decode(json_encode($feed),true);
+			usort($feedArr, function($a, $b) {
+				return $a['pubDate'] - $b['pubDate'];
+			});
+		
+			$feedNewArr = array_slice($feedArr[0]['item'], 0, 1, true);
+			$latestFeed = json_decode(json_encode($feedNewArr));
+
+			if (!empty($latestFeed)) {
+				$more = ' <a href="' . $latestFeed[0]->link . '" target="_blank">Read more</a>';
+				$latestFeed[0]->description = trim(str_replace(' [&#8230;]', '...' . $more, $latestFeed[0]->description));
+				$latestFeed[0]->description = preg_replace('/The post.*appeared first on .*\./', '', $latestFeed[0]->description);
+			}
+		}
+		return $latestFeed[0];
 	}
 }
